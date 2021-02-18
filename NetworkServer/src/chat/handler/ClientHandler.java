@@ -13,7 +13,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.Set;
+import java.net.SocketTimeoutException;
 import java.util.Timer;
 
 public class ClientHandler {
@@ -24,16 +24,27 @@ public class ClientHandler {
     private ObjectOutputStream out;
     private String clientUsername;
 
-    public ClientHandler(MyServer myServer, Socket clientSocket) {
+    public ClientHandler(MyServer myServer, Socket clientSocket) throws IOException {
         this.myServer = myServer;
         this.clientSocket = clientSocket;
-        try {
+
+
             clientSocket.setSoTimeout(120000);
-        } catch (SocketException e) {
-            e.printStackTrace();
+            in = (ObjectInputStream) clientSocket.getInputStream();
+            out = (ObjectOutputStream) clientSocket.getOutputStream();
         }
-     
-    }
+
+//      clientSocket.setSoTimeout(120000);
+//        while (true) {
+//            try {
+//                clientSocket.receive(p);
+//            } catch (SocketTimeoutException ste) {
+//                System.out.println("### Timed out 120 sec");
+//            }
+//        }
+//      new Timer().schedule();
+
+
 
     public void handle() throws IOException {
         in = new ObjectInputStream(clientSocket.getInputStream());
@@ -58,7 +69,7 @@ public class ClientHandler {
             Command command = readCommand();
             if (command == null) {
                 continue;
-
+//                Set set = new TreeSet();
             }
             if (command.getType() == CommandType.AUTH) {
 
