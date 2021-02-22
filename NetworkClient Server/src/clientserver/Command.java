@@ -10,6 +10,10 @@ public class Command implements Serializable {
     private CommandType type;
     private Object data;
 
+    public static Command authTimeoutCommand(String connection_timeout) {
+        return null;
+    }
+
     public CommandType getType() {
         return type;
     }
