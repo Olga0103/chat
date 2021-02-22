@@ -13,43 +13,75 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.Set;
+import java.net.SocketTimeoutException;
 import java.util.Timer;
+import java.util.TimerTask;
 
 public class ClientHandler {
 
+    private final long CONNECTION_TIMEOUT = 120000;
     private final MyServer myServer;
     private final Socket clientSocket;
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private String clientUsername;
 
-    public ClientHandler(MyServer myServer, Socket clientSocket) {
+    public ClientHandler(MyServer myServer, Socket clientSocket){
         this.myServer = myServer;
         this.clientSocket = clientSocket;
-        try {
-            clientSocket.setSoTimeout(120000);
-        } catch (SocketException e) {
-            e.printStackTrace();
-        }
-     
     }
+
 
     public void handle() throws IOException {
         in = new ObjectInputStream(clientSocket.getInputStream());
         out = new ObjectOutputStream(clientSocket.getOutputStream());
 
+        TimerTask timerTask = new TimerTask() {
+        @Override
+        public void run() {
+            try {
+                sendMessage(Command.authTimeoutCommand("Connection timeout"));
+                closeConnection();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        };
+
+
+    Timer closeConnectionOnTime = new Timer();
+
+        closeConnectionOnTime.schedule(timerTask, CONNECTION_TIMEOUT);
 
         new Thread(() -> {
-            try {
-                authentication();
-                readMessage();
-            } catch (IOException e) {
-                System.out.println(e.getMessage());
+        try {
+            authentication();
+            if (clientUsername != null) {
+                closeConnectionOnTime.cancel();
             }
-        }).start();
+            readMessage();
+            
+            
+        } catch (SocketException e) {
+            System.err.println("Connection has been interrupted");
+            try {
+                closeConnection();
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                closeConnection();
+            } catch (IOException e) {
+                System.err.println("Failed to close connection.");
+            }
+        }
+    }).start();
+}
 
-    }
 
     private void authentication() throws IOException {
 
@@ -58,7 +90,7 @@ public class ClientHandler {
             Command command = readCommand();
             if (command == null) {
                 continue;
-
+//                Set set = new TreeSet();
             }
             if (command.getType() == CommandType.AUTH) {
 
@@ -149,5 +181,9 @@ public class ClientHandler {
         out.writeObject(command);
     }
 
+    private void closeConnection() throws IOException {
+        myServer.unsubscribe(this);
+        clientSocket.close();
+    }
 
 }
